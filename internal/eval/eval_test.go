@@ -152,6 +152,16 @@ func TestLoadBaselineMissing(t *testing.T) {
 	}
 }
 
+func TestCRLFEvalFixture(t *testing.T) {
+	b, err := os.ReadFile(filepath.Join("..", "..", "testdata", "reviews", "sqs-crlf", "change.patch"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(b), "\r\n") {
+		t.Fatal("sqs-crlf/change.patch must keep CRLF line endings; check .gitattributes")
+	}
+}
+
 func TestLoadCases(t *testing.T) {
 	root := t.TempDir()
 	dir := filepath.Join(root, "case-a")

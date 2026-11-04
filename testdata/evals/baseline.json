@@ -19,7 +19,22 @@
       "hallucination_rate": 0,
       "stable": true,
       "input_tokens": 2688,
-      "output_tokens": 291,
+      "output_tokens": 221,
+      "runs": 3
+    },
+    "sqs-binary-skip": {
+      "tp": 3,
+      "fp": 0,
+      "fn": 0,
+      "verified": 3,
+      "evidence_dropped": 0,
+      "precision": 1,
+      "recall": 1,
+      "citation_validity": 1,
+      "hallucination_rate": 0,
+      "stable": true,
+      "input_tokens": 2697,
+      "output_tokens": 1028,
       "runs": 3
     },
     "sqs-body-logging": {
@@ -34,22 +49,52 @@
       "hallucination_rate": 0,
       "stable": true,
       "input_tokens": 2721,
-      "output_tokens": 1515,
+      "output_tokens": 1117,
+      "runs": 3
+    },
+    "sqs-crlf": {
+      "tp": 3,
+      "fp": 0,
+      "fn": 0,
+      "verified": 3,
+      "evidence_dropped": 0,
+      "precision": 1,
+      "recall": 1,
+      "citation_validity": 1,
+      "hallucination_rate": 0,
+      "stable": true,
+      "input_tokens": 2685,
+      "output_tokens": 1170,
+      "runs": 3
+    },
+    "sqs-rename-spaces": {
+      "tp": 3,
+      "fp": 0,
+      "fn": 0,
+      "verified": 3,
+      "evidence_dropped": 0,
+      "precision": 1,
+      "recall": 1,
+      "citation_validity": 1,
+      "hallucination_rate": 0,
+      "stable": true,
+      "input_tokens": 2808,
+      "output_tokens": 2143,
       "runs": 3
     }
   },
   "aggregate": {
-    "tp": 3,
+    "tp": 12,
     "fp": 0,
     "fn": 0,
-    "verified": 3,
+    "verified": 12,
     "evidence_dropped": 0,
     "precision": 1,
     "recall": 1,
     "citation_validity": 1,
     "hallucination_rate": 0,
     "stable": true,
-    "input_tokens": 5409,
-    "output_tokens": 1806
+    "input_tokens": 13599,
+    "output_tokens": 5679
   }
 }

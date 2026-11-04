@@ -12,8 +12,8 @@ Findings are advisory: nothing is approved, merged, or written back.
 
 1. Reads a pinned docs-store checkout through
    `companion guidance --store <dir> --json "<task>"`.
-2. Builds a bounded context pack: applicable documents, the diff, project and
-   team, and an explicit precedence note.
+2. Builds a bounded context pack: applicable approved documents, the diff,
+   project and team, and an explicit precedence note.
 3. Asks the model for findings that cite an exact document quote and an exact
    added-code quote.
 4. Verifies every quote against the documents and the diff, drops findings that
@@ -27,7 +27,7 @@ practices, and it never gets write access.
 
 - Go 1.27.3+ to build.
 - A `companion` build that supports `companion guidance --store` (the read-only
-  store override).
+  store override, added in PR #14; the 0.2.0 Homebrew release predates it).
 - A docs store checkout.
 - An OpenAI-compatible endpoint and model.
 
@@ -96,7 +96,11 @@ failure, invalid model output).
 `companion.judge/v1` includes the model, prompt version and hash, document
 counts, changed files, verified findings, dropped findings with reasons, token
 usage, and warnings. It contains no timestamps, so the same inputs produce the
-same report structure.
+same report structure. `findings` and `dropped` are always arrays, including
+when empty.
+
+Only documents with `status: approved` are policy. Proposed, deprecated and
+superseded documents are excluded from the pack and cannot back a finding.
 
 ## Development
 
@@ -105,6 +109,21 @@ go test ./...
 go vet ./...
 make fmt vet test
 ```
+
+The checked-in fixture under
+[`testdata/reviews/sqs-idempotency`](testdata/reviews/sqs-idempotency) exercises
+the guidance contract and evidence verification:
+
+```bash
+# Dry-run the fixture against a companion build with --store.
+make smoke COMPANION=/path/to/companion
+
+# Run the end-to-end test against the real companion binary.
+COMPANION_BIN=/path/to/companion go test ./cmd/companion-judge
+```
+
+The other end-to-end tests use a loopback model stub and a companion stub, so
+they need no endpoint or API key.
 
 ## License
 

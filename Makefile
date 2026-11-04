@@ -1,6 +1,7 @@
 BINARY := companion-judge
+COMPANION ?= companion
 
-.PHONY: build test vet fmt clean
+.PHONY: build test vet fmt clean smoke
 
 build:
 	go build -trimpath -o $(BINARY) ./cmd/companion-judge
@@ -13,6 +14,16 @@ vet:
 
 fmt:
 	gofmt -w cmd internal
+
+smoke:
+	go run ./cmd/companion-judge review \
+		--store testdata/reviews/sqs-idempotency/docs \
+		--project acme/api \
+		--lang go \
+		--diff testdata/reviews/sqs-idempotency/change.patch \
+		--title "add SQS consumer" \
+		--companion "$(COMPANION)" \
+		--dry-run
 
 clean:
 	rm -f $(BINARY)

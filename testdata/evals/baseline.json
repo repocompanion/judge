@@ -1,10 +1,10 @@
 {
-  "schema": "companion.judge.eval-baseline/v1",
+  "schema": "judge.eval-baseline/v1",
   "model": "deepseek-flash",
   "prompt": {
     "id": "review",
-    "version": "1",
-    "hash": "sha256:1ece26448a6aa0c6b7364d4220364acda99726375eb0ffed3d975e7adf70ac98"
+    "version": "2",
+    "hash": "sha256:1eb289c01136157c6de21ebaa5a322702b945e965e10b09d3539b8ac59822dbc"
   },
   "cases": {
     "sqs-benign-log": {
@@ -18,8 +18,8 @@
       "citation_validity": 1,
       "hallucination_rate": 0,
       "stable": true,
-      "input_tokens": 2691,
-      "output_tokens": 218,
+      "input_tokens": 2688,
+      "output_tokens": 291,
       "runs": 3
     },
     "sqs-body-logging": {
@@ -33,8 +33,8 @@
       "citation_validity": 1,
       "hallucination_rate": 0,
       "stable": true,
-      "input_tokens": 2724,
-      "output_tokens": 1123,
+      "input_tokens": 2721,
+      "output_tokens": 1515,
       "runs": 3
     }
   },
@@ -49,7 +49,7 @@
     "citation_validity": 1,
     "hallucination_rate": 0,
     "stable": true,
-    "input_tokens": 5415,
-    "output_tokens": 1341
+    "input_tokens": 5409,
+    "output_tokens": 1806
   }
 }

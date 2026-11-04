@@ -85,7 +85,7 @@ func TestEvalBaselineRegression(t *testing.T) {
 	srv := modelStub(t, fixtureTwoFindings)
 	baseline := filepath.Join(t.TempDir(), "baseline.json")
 	body := `{
-  "schema": "companion.judge.eval-baseline/v1",
+  "schema": "judge.eval-baseline/v1",
   "model": "test-model",
   "cases": {
     "sqs-body-logging": {

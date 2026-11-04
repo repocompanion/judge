@@ -164,7 +164,7 @@ func TestRunProducesVerifiedReport(t *testing.T) {
 	if fake.req.Model != "test-model" {
 		t.Fatalf("model = %q", fake.req.Model)
 	}
-	if !strings.Contains(fake.req.System, "Companion Judge") {
+	if !strings.Contains(fake.req.System, "Judge") {
 		t.Fatal("system prompt was not passed")
 	}
 	for _, want := range []string{"sqs-consumer", "org/patterns/messaging/sqs.md", "<<<DIFF", "untrusted"} {
@@ -206,7 +206,7 @@ func TestMarkdownIncludesEvidence(t *testing.T) {
 		Findings: v.Findings,
 	}
 	md := rep.Markdown()
-	for _, want := range []string{"Companion Judge", "org/patterns/messaging/sqs.md", "internal/consumer/consumer.go:12", "MUST make the handler idempotent"} {
+	for _, want := range []string{"Judge", "org/patterns/messaging/sqs.md", "internal/consumer/consumer.go:12", "MUST make the handler idempotent"} {
 		if !strings.Contains(md, want) {
 			t.Fatalf("markdown missing %q:\n%s", want, md)
 		}

@@ -1,7 +1,6 @@
-# Companion Judge
+# Judge
 
-The command is `judge`; the module and repository are
-`github.com/repocompanion/judge`.
+The module and repository are `github.com/repocompanion/judge`.
 
 Agentic reviewer for Repo Companion. It reviews a change against the
 organization's approved documentation and returns findings that cite both the
@@ -69,7 +68,7 @@ judge review --store ../docs-store --project acme/api --staged
 Output:
 
 ```bash
-judge review ... --json    # companion.judge/v1 report
+judge review ... --json    # judge/v1 report
 ```
 
 Exit codes: `0` review completed (findings do not fail the command), `2` usage
@@ -120,7 +119,7 @@ enough for the checked-in fixture).
 
 ## Report shape
 
-`companion.judge/v1` includes the model, prompt version and hash, document
+`judge/v1` includes the model, prompt version and hash, document
 counts, changed files, verified findings, dropped findings with reasons, token
 usage, and warnings. It contains no timestamps, so the same inputs produce the
 same report structure. `findings` and `dropped` are always arrays, including
@@ -189,7 +188,7 @@ judge eval ... --runs 3 --emit-baseline > testdata/evals/baseline.json
 
 Exit codes: `0` pass, `2` usage or input error, `3` the eval could not complete,
 `4` a baseline regression. The checked-in baseline was recorded with
-`deepseek-flash` and prompt `review` v1; changing either is expected to require
+`deepseek-flash` and prompt `review` v2; changing either is expected to require
 a new baseline.
 
 ## Development

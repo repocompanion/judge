@@ -98,7 +98,7 @@ func TestReviewEndToEnd(t *testing.T) {
 	if err := json.Unmarshal([]byte(out), &rep); err != nil {
 		t.Fatalf("decode report: %v\n%s", err, out)
 	}
-	if rep.Schema != "companion.judge/v1" {
+	if rep.Schema != "judge/v1" {
 		t.Fatalf("schema = %q", rep.Schema)
 	}
 	if len(rep.Findings) != 1 || rep.Findings[0].Line != 12 || rep.Findings[0].DocID != "sqs-consumer" {

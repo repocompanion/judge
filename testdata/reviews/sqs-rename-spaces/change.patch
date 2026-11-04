@@ -1,0 +1,14 @@
+diff --git a/internal/consumer/consumer.go b/internal/consumer streaming/consumer.go
+similarity index 50%
+rename from internal/consumer/consumer.go
+rename to internal/consumer streaming/consumer.go
+index 1111111..2222222 100644
+--- a/internal/consumer/consumer.go	
++++ b/internal/consumer streaming/consumer.go	
+@@ -10,3 +10,6 @@ func Consume(body string) error {
+ 	msgs := receive()
++	for _, m := range msgs {
++		log.Printf("message body: %s", m.Body)
++	}
+ 	return nil
+ }

@@ -1,0 +1,13 @@
+diff --git a/assets/logo.png b/assets/logo.png
+index 1111111..2222222 100644
+Binary files a/assets/logo.png and b/assets/logo.png differ
+diff --git a/internal/consumer/consumer.go b/internal/consumer/consumer.go
+--- a/internal/consumer/consumer.go
++++ b/internal/consumer/consumer.go
+@@ -10,3 +10,6 @@ func Consume(body string) error {
+ 	msgs := receive()
++	for _, m := range msgs {
++		log.Printf("message body: %s", m.Body)
++	}
+ 	return nil
+ }

@@ -1,0 +1,8 @@
+/companion-judge
+/dist/
+/.gocache/
+/.tmp/
+*.test
+coverage.out
+.DS_Store
+.env

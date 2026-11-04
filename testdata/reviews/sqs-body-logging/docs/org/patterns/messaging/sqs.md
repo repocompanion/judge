@@ -21,3 +21,4 @@ Use this pattern when a Go service consumes an SQS queue.
 - MUST configure a dead-letter queue.
 - MUST make the handler idempotent.
 - SHOULD bound worker concurrency.
+- MUST NOT log raw message bodies.

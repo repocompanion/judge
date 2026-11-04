@@ -2,10 +2,8 @@ diff --git a/internal/consumer/consumer.go b/internal/consumer/consumer.go
 index 1111111..2222222 100644
 --- a/internal/consumer/consumer.go
 +++ b/internal/consumer/consumer.go
-@@ -10,3 +10,6 @@ func Consume(body string) error {
+@@ -10,3 +10,4 @@ func Consume(body string) error {
  	msgs := receive()
-+	for _, m := range msgs {
-+		process(m)
-+	}
++	log.Printf("received %d messages", len(msgs))
  	return nil
  }

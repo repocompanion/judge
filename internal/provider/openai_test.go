@@ -70,3 +70,55 @@ func TestNewOpenAIRejectsRemoteHTTP(t *testing.T) {
 		t.Fatal("loopback URL not detected")
 	}
 }
+
+func TestOpenAIReportsTruncation(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"choices": []any{map[string]any{
+				"finish_reason": "length",
+				"message":       map[string]string{"content": "", "reasoning_content": "still thinking"},
+			}},
+			"usage": map[string]any{
+				"prompt_tokens":     10,
+				"completion_tokens": 4000,
+				"completion_tokens_details": map[string]int{
+					"reasoning_tokens": 3900,
+				},
+			},
+		})
+	}))
+	defer srv.Close()
+	p, err := NewOpenAI(srv.URL, "key", time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = p.Complete(context.Background(), Request{Model: "m", System: "s", User: "u"})
+	if err == nil || !strings.Contains(err.Error(), "truncated") {
+		t.Fatalf("error = %v, want a truncation error", err)
+	}
+	for _, want := range []string{"4000", "3900"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Fatalf("error = %v, want %s", err, want)
+		}
+	}
+}
+
+func TestOpenAIReportsReasoningWithoutContent(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"choices": []any{map[string]any{
+				"finish_reason": "stop",
+				"message":       map[string]string{"content": "", "reasoning_content": "thoughts"},
+			}},
+		})
+	}))
+	defer srv.Close()
+	p, err := NewOpenAI(srv.URL, "key", time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = p.Complete(context.Background(), Request{Model: "m", System: "s", User: "u"})
+	if err == nil || !strings.Contains(err.Error(), "reasoning but no final content") {
+		t.Fatalf("error = %v, want a reasoning-only error", err)
+	}
+}

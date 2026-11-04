@@ -17,10 +17,10 @@ fmt:
 
 smoke:
 	go run ./cmd/companion-judge review \
-		--store testdata/reviews/sqs-idempotency/docs \
+		--store testdata/reviews/sqs-body-logging/docs \
 		--project acme/api \
 		--lang go \
-		--diff testdata/reviews/sqs-idempotency/change.patch \
+		--diff testdata/reviews/sqs-body-logging/change.patch \
 		--title "add SQS consumer" \
 		--companion "$(COMPANION)" \
 		--dry-run

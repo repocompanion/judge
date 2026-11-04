@@ -4,10 +4,10 @@
     {
       "doc_id": "sqs-consumer",
       "doc_path": "org/patterns/messaging/sqs.md",
-      "doc_quote": "MUST make the handler idempotent",
+      "doc_quote": "MUST NOT log raw message bodies.",
       "code_path": "internal/consumer/consumer.go",
       "line": 12,
-      "code_quote": "process(m)",
+      "code_quote": "log.Printf(\"message body: %s\", m.Body)",
       "severity": "error",
       "category": "pattern"
     }

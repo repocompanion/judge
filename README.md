@@ -88,8 +88,14 @@ failure, invalid model output).
 | `--base-url` | `JUDGE_BASE_URL` | API root; `http` only for loopback |
 | `--model` | `JUDGE_MODEL` | Model id |
 | `--api-key-env` | `JUDGE_API_KEY` | Env var holding the key |
+| `--max-tokens` | 4000 | Maximum completion tokens, including reasoning |
 | `--json-mode` | false | Send `response_format: json_object` |
 | `--dry-run` | false | Print the pack summary, no model call |
+
+Reasoning models such as `deepseek-v4-pro` spend completion tokens on reasoning.
+If the budget is exhausted before the JSON answer, the review fails with a
+truncation error that reports the token counts; raise `--max-tokens` (12000 was
+enough for the checked-in fixture).
 
 ## Report shape
 
@@ -111,7 +117,7 @@ make fmt vet test
 ```
 
 The checked-in fixture under
-[`testdata/reviews/sqs-idempotency`](testdata/reviews/sqs-idempotency) exercises
+[`testdata/reviews/sqs-body-logging`](testdata/reviews/sqs-body-logging) exercises
 the guidance contract and evidence verification:
 
 ```bash

@@ -103,23 +103,39 @@ func (o *OpenAI) Complete(ctx context.Context, req Request) (Response, error) {
 	}
 	var parsed struct {
 		Choices []struct {
-			Message struct {
-				Content string `json:"content"`
+			FinishReason string `json:"finish_reason"`
+			Message      struct {
+				Content          string `json:"content"`
+				ReasoningContent string `json:"reasoning_content"`
 			} `json:"message"`
 		} `json:"choices"`
 		Usage struct {
-			PromptTokens     int `json:"prompt_tokens"`
-			CompletionTokens int `json:"completion_tokens"`
+			PromptTokens            int `json:"prompt_tokens"`
+			CompletionTokens        int `json:"completion_tokens"`
+			CompletionTokensDetails struct {
+				ReasoningTokens int `json:"reasoning_tokens"`
+			} `json:"completion_tokens_details"`
 		} `json:"usage"`
 	}
 	if err := json.Unmarshal(raw, &parsed); err != nil {
 		return Response{}, fmt.Errorf("decode model response: %w", err)
 	}
-	if len(parsed.Choices) == 0 || strings.TrimSpace(parsed.Choices[0].Message.Content) == "" {
-		return Response{}, fmt.Errorf("model returned no content")
+	if len(parsed.Choices) == 0 {
+		return Response{}, fmt.Errorf("model returned no choices")
+	}
+	choice := parsed.Choices[0]
+	if choice.FinishReason == "length" {
+		return Response{}, fmt.Errorf("model output was truncated at %d completion tokens (%d reasoning tokens); increase --max-tokens",
+			parsed.Usage.CompletionTokens, parsed.Usage.CompletionTokensDetails.ReasoningTokens)
+	}
+	if strings.TrimSpace(choice.Message.Content) == "" {
+		if strings.TrimSpace(choice.Message.ReasoningContent) != "" {
+			return Response{}, fmt.Errorf("model returned reasoning but no final content (finish_reason=%q)", choice.FinishReason)
+		}
+		return Response{}, fmt.Errorf("model returned no content (finish_reason=%q)", choice.FinishReason)
 	}
 	return Response{
-		Content:          parsed.Choices[0].Message.Content,
+		Content:          choice.Message.Content,
 		PromptTokens:     parsed.Usage.PromptTokens,
 		CompletionTokens: parsed.Usage.CompletionTokens,
 	}, nil

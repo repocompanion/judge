@@ -13,9 +13,9 @@ import (
 )
 
 const (
-	fixtureDir      = "../../testdata/reviews/sqs-idempotency"
+	fixtureDir      = "../../testdata/reviews/sqs-body-logging"
 	fixtureGuidance = `[{"id":"sqs-consumer","title":"SQS consumer","path":"org/patterns/messaging/sqs.md","kind":"pattern","status":"approved","scope":"org","score":3.8}]`
-	fixtureFinding  = `{"findings":[{"doc_id":"sqs-consumer","doc_path":"org/patterns/messaging/sqs.md","doc_quote":"MUST make the handler idempotent","code_path":"internal/consumer/consumer.go","line":999,"code_quote":"process(m)","severity":"error","category":"pattern","message":"the handler processes messages without an idempotency key","remediation":"derive a key from the message id before processing","confidence":0.9}]}`
+	fixtureFinding  = `{"findings":[{"doc_id":"sqs-consumer","doc_path":"org/patterns/messaging/sqs.md","doc_quote":"MUST NOT log raw message bodies.","code_path":"internal/consumer/consumer.go","line":999,"code_quote":"log.Printf(\"message body: %s\", m.Body)","severity":"error","category":"pattern","message":"the change logs the raw message body","remediation":"log the message id or size instead of the body","confidence":0.9}]}`
 )
 
 func fixturePaths(t *testing.T) (store, diff string) {
@@ -165,5 +165,36 @@ func TestReviewWithRealCompanion(t *testing.T) {
 	}
 	if len(rep.Findings) != 1 || rep.Findings[0].Line != 12 {
 		t.Fatalf("findings = %+v, want one verified finding at line 12", rep.Findings)
+	}
+}
+
+// TestReviewRejectsEvidenceOutsideDiff makes the model cite the body-log line
+// while reviewing the benign diff. The verifier must drop it.
+func TestReviewRejectsEvidenceOutsideDiff(t *testing.T) {
+	store, _ := fixturePaths(t)
+	benign := filepath.Join(fixtureDir, "benign.patch")
+	if _, err := os.Stat(benign); err != nil {
+		t.Fatalf("fixture %s: %v", benign, err)
+	}
+	srv := modelStub(t, fixtureFinding)
+	code, out, errOut := runReviewCLI(t, companionStub(t, fixtureGuidance), store, benign, srv.URL)
+	if code != 0 {
+		t.Fatalf("exit = %d, stderr = %s", code, errOut)
+	}
+
+	var rep struct {
+		Findings []json.RawMessage `json:"findings"`
+		Dropped  []struct {
+			Reason string `json:"reason"`
+		} `json:"dropped"`
+	}
+	if err := json.Unmarshal([]byte(out), &rep); err != nil {
+		t.Fatalf("decode report: %v\n%s", err, out)
+	}
+	if len(rep.Findings) != 0 {
+		t.Fatalf("findings = %+v, want none: the cited line is not in the benign diff", rep.Findings)
+	}
+	if len(rep.Dropped) != 1 || rep.Dropped[0].Reason != "code_quote_not_found" {
+		t.Fatalf("dropped = %+v, want one code_quote_not_found", rep.Dropped)
 	}
 }

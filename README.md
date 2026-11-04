@@ -1,5 +1,7 @@
 # Judge
 
+[![ci](https://github.com/repocompanion/judge/actions/workflows/ci.yml/badge.svg)](https://github.com/repocompanion/judge/actions/workflows/ci.yml)
+
 The module and repository are `github.com/repocompanion/judge`.
 
 Agentic reviewer for Repo Companion. It reviews a change against the
@@ -217,6 +219,10 @@ The other end-to-end tests use a loopback model stub and a companion stub, so
 they need no endpoint or API key. That includes the eval scoring and baseline
 gate; the checked-in baseline itself is refreshed against a real endpoint with
 the eval command above.
+
+## Security
+
+See [SECURITY.md](SECURITY.md) for private vulnerability reporting and scope.
 
 ## License
 

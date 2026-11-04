@@ -12,7 +12,7 @@ vet:
 	go vet ./...
 
 fmt:
-	gofmt -w cmd
+	gofmt -w cmd internal
 
 clean:
 	rm -f $(BINARY)

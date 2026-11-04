@@ -19,22 +19,43 @@ func TestRunVersion(t *testing.T) {
 	}
 }
 
+func TestRunHelp(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	if code := run([]string{"help"}, &stdout, &stderr); code != 0 {
+		t.Fatalf("exit = %d, want 0", code)
+	}
+	if !strings.Contains(stdout.String(), "review") {
+		t.Fatalf("help = %q", stdout.String())
+	}
+}
+
 func TestRunUnknownCommand(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	if code := run([]string{"deploy"}, &stdout, &stderr); code != 2 {
+		t.Fatalf("exit = %d, want 2", code)
+	}
+	if !strings.Contains(stderr.String(), "unknown command") {
+		t.Fatalf("stderr = %q", stderr.String())
+	}
+}
+
+func TestReviewRequiresStore(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	if code := run([]string{"review"}, &stdout, &stderr); code != 2 {
 		t.Fatalf("exit = %d, want 2", code)
 	}
-	if !strings.Contains(stderr.String(), "not implemented") {
-		t.Fatalf("stderr = %q, want a not-implemented note", stderr.String())
+	if !strings.Contains(stderr.String(), "--store") {
+		t.Fatalf("stderr = %q", stderr.String())
 	}
 }
 
-func TestRunNoArgs(t *testing.T) {
+func TestReviewRejectsUnknownProvider(t *testing.T) {
 	var stdout, stderr bytes.Buffer
-	if code := run(nil, &stdout, &stderr); code != 2 {
+	code := run([]string{"review", "--store", t.TempDir(), "--project", "acme/api", "--provider", "anthropic"}, &stdout, &stderr)
+	if code != 2 {
 		t.Fatalf("exit = %d, want 2", code)
 	}
-	if !strings.Contains(stderr.String(), "early development") {
-		t.Fatalf("stderr = %q, want an early-development note", stderr.String())
+	if !strings.Contains(stderr.String(), "openai-compatible") {
+		t.Fatalf("stderr = %q", stderr.String())
 	}
 }

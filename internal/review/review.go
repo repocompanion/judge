@@ -149,6 +149,10 @@ func BuildPack(cfg Config) *Pack {
 		p.DiffText = text
 	}
 	for _, d := range cfg.Documents {
+		if !isApproved(d) {
+			p.Warnings = append(p.Warnings, fmt.Sprintf("document %q was excluded because its status is %q, not approved", valueOr(d.ID, d.Path), d.Status))
+			continue
+		}
 		if cfg.MaxDocs > 0 && len(p.Documents) >= cfg.MaxDocs {
 			p.Warnings = append(p.Warnings, "the document limit was reached; remaining documents were omitted")
 			break
@@ -218,6 +222,9 @@ func Run(ctx context.Context, cfg Config) (*Report, error) {
 	}
 	pack := BuildPack(cfg)
 	if len(pack.Documents) == 0 {
+		if len(cfg.Documents) > 0 {
+			return nil, fmt.Errorf("%w: all %d matching document(s) are not approved", ErrNoDocuments, len(cfg.Documents))
+		}
 		return nil, ErrNoDocuments
 	}
 	resp, err := cfg.Provider.Complete(ctx, provider.Request{
@@ -330,8 +337,8 @@ func Verify(pack *Pack, raw []RawFinding, max int) Verification {
 		addedByPath[change.NormalizePath(a.Path)] = append(addedByPath[change.NormalizePath(a.Path)], a)
 	}
 
-	var out []Finding
-	var dropped []Dropped
+	out := make([]Finding, 0)
+	dropped := make([]Dropped, 0)
 	seen := map[string]bool{}
 	for _, r := range raw {
 		docID := strings.TrimSpace(r.DocID)
@@ -346,6 +353,10 @@ func Verify(pack *Pack, raw []RawFinding, max int) Verification {
 		}
 		if !ok {
 			dropped = append(dropped, Dropped{Reason: "doc_not_in_pack", Detail: valueOr(docID, docPath)})
+			continue
+		}
+		if !isApproved(d) {
+			dropped = append(dropped, Dropped{Reason: "doc_not_approved", Detail: d.Path})
 			continue
 		}
 		docQuote := normalizeSpace(r.DocQuote)
@@ -430,7 +441,11 @@ func (r *Report) Markdown() string {
 	fmt.Fprintf(&b, "## Companion Judge — %s\n\n", r.Verdict)
 	fmt.Fprintf(&b, "Reviewed %d changed file(s) against %d document(s) with `%s`.\n\n", r.Change.Files, r.Docs.InPack, r.Model.ID)
 	if len(r.Findings) == 0 {
-		b.WriteString("No findings. The change did not contradict the selected documents.\n")
+		if len(r.Dropped) > 0 {
+			b.WriteString("No verified findings. Model findings were discarded because their evidence did not verify.\n")
+		} else {
+			b.WriteString("No findings. The change did not contradict the selected documents.\n")
+		}
 	} else {
 		fmt.Fprintf(&b, "### Findings (%d)\n\n", len(r.Findings))
 		for i, f := range r.Findings {
@@ -452,6 +467,10 @@ func (r *Report) Markdown() string {
 		fmt.Fprintf(&b, "> Note: %s\n", w)
 	}
 	return b.String()
+}
+
+func isApproved(d docs.Doc) bool {
+	return strings.EqualFold(strings.TrimSpace(d.Status), "approved")
 }
 
 func normalizeSpace(s string) string {

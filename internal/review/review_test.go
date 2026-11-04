@@ -2,6 +2,7 @@ package review
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"strings"
 	"testing"
@@ -115,11 +116,13 @@ type fakeProvider struct {
 	content string
 	err     error
 	req     provider.Request
+	calls   int
 }
 
 func (f *fakeProvider) Name() string { return "fake" }
 
 func (f *fakeProvider) Complete(_ context.Context, req provider.Request) (provider.Response, error) {
+	f.calls++
 	f.req = req
 	if f.err != nil {
 		return provider.Response{}, f.err
@@ -206,5 +209,116 @@ func TestMarkdownIncludesEvidence(t *testing.T) {
 		if !strings.Contains(md, want) {
 			t.Fatalf("markdown missing %q:\n%s", want, md)
 		}
+	}
+}
+
+func TestBuildPackExcludesNonApproved(t *testing.T) {
+	d, err := change.Parse([]byte(testDiff))
+	if err != nil {
+		t.Fatal(err)
+	}
+	deprecated := testDoc()
+	deprecated.ID = "old-queue"
+	deprecated.Path = "org/patterns/messaging/old-queue.md"
+	deprecated.Status = "deprecated"
+	proposed := testDoc()
+	proposed.ID = "draft-queue"
+	proposed.Path = "org/patterns/messaging/draft-queue.md"
+	proposed.Status = "proposed"
+
+	p := BuildPack(Config{
+		Task: "implement an SQS consumer", Project: "acme/api", Diff: d,
+		Documents: []docs.Doc{testDoc(), deprecated, proposed},
+		MaxDocs:   5, MaxDocBytes: 10000, MaxDiffBytes: 10000,
+	})
+	if len(p.Documents) != 1 || p.Documents[0].ID != "sqs-consumer" {
+		t.Fatalf("documents = %+v, want only the approved document", p.Documents)
+	}
+	if len(p.Warnings) != 2 {
+		t.Fatalf("warnings = %v, want one per excluded document", p.Warnings)
+	}
+}
+
+func TestRunRejectsOnlyNonApproved(t *testing.T) {
+	d, err := change.Parse([]byte(testDiff))
+	if err != nil {
+		t.Fatal(err)
+	}
+	deprecated := testDoc()
+	deprecated.Status = "deprecated"
+	fake := &fakeProvider{content: `{"findings":[]}`}
+	_, err = Run(context.Background(), Config{
+		Task: "implement an SQS consumer", Diff: d,
+		Documents: []docs.Doc{deprecated}, Provider: fake, Model: "test-model",
+	})
+	if !errors.Is(err, ErrNoDocuments) {
+		t.Fatalf("error = %v, want ErrNoDocuments", err)
+	}
+	if fake.calls != 0 {
+		t.Fatalf("provider was called %d time(s) with no approved documents", fake.calls)
+	}
+}
+
+func TestVerifyDropsNonApprovedDoc(t *testing.T) {
+	p := testPack(t)
+	deprecated := testDoc()
+	deprecated.ID = "old-queue"
+	deprecated.Path = "org/patterns/messaging/old-queue.md"
+	deprecated.Status = "deprecated"
+	p.Documents = append(p.Documents, deprecated)
+
+	raw := validRaw()
+	raw.DocID = deprecated.ID
+	raw.DocPath = deprecated.Path
+	v := Verify(p, []RawFinding{raw}, 10)
+	if len(v.Findings) != 0 {
+		t.Fatalf("finding survived: %+v", v.Findings)
+	}
+	if len(v.Dropped) != 1 || v.Dropped[0].Reason != "doc_not_approved" {
+		t.Fatalf("dropped = %+v, want doc_not_approved", v.Dropped)
+	}
+}
+
+func TestReportUsesArraysWhenEmpty(t *testing.T) {
+	d, err := change.Parse([]byte(testDiff))
+	if err != nil {
+		t.Fatal(err)
+	}
+	rep, err := Run(context.Background(), Config{
+		Task: "implement an SQS consumer", Project: "acme/api", Diff: d,
+		Documents: []docs.Doc{testDoc()}, MaxFindings: 5,
+		Provider: &fakeProvider{content: `{"findings":[]}`}, Model: "test-model",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := json.Marshal(rep)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(b, &raw); err != nil {
+		t.Fatal(err)
+	}
+	if got := string(raw["findings"]); got != "[]" {
+		t.Fatalf("findings = %s, want []", got)
+	}
+	if got := string(raw["dropped"]); got != "[]" {
+		t.Fatalf("dropped = %s, want []", got)
+	}
+}
+
+func TestMarkdownDistinguishesDropped(t *testing.T) {
+	rep := &Report{
+		Verdict: "advisory", Model: ModelInfo{ID: "test-model"},
+		Docs: DocsInfo{InPack: 1}, Change: ChangeInfo{Files: 1},
+		Dropped: []Dropped{{Reason: "doc_quote_not_found"}},
+	}
+	md := rep.Markdown()
+	if strings.Contains(md, "did not contradict") {
+		t.Fatalf("markdown claims a clean review after dropping findings:\n%s", md)
+	}
+	if !strings.Contains(md, "No verified findings") {
+		t.Fatalf("markdown missing dropped-findings message:\n%s", md)
 	}
 }

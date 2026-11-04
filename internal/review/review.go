@@ -22,17 +22,17 @@ import (
 
 const (
 	// Schema is the report schema version.
-	Schema = "companion.judge/v1"
+	Schema = "judge/v1"
 	// PromptID identifies the review prompt.
 	PromptID = "review"
 	// PromptVersion is bumped whenever the prompt changes.
-	PromptVersion = "1"
+	PromptVersion = "2"
 )
 
 // ErrNoDocuments means there was nothing to review against.
 var ErrNoDocuments = errors.New("no applicable documents")
 
-//go:embed prompts/review-v1.md
+//go:embed prompts/review-v2.md
 var systemPrompt string
 
 // Finding is a verified review finding.
@@ -480,7 +480,7 @@ func Verify(pack *Pack, raw []RawFinding, max int) Verification {
 // Markdown renders a PR-ready review comment.
 func (r *Report) Markdown() string {
 	var b strings.Builder
-	fmt.Fprintf(&b, "## Companion Judge — %s\n\n", r.Verdict)
+	fmt.Fprintf(&b, "## Judge — %s\n\n", r.Verdict)
 	reviewed := r.Change.Reviewed
 	if reviewed == 0 {
 		reviewed = r.Change.Files

@@ -22,9 +22,9 @@ import (
 
 const (
 	// Schema is the eval report schema.
-	Schema = "companion.judge.eval/v1"
+	Schema = "judge.eval/v1"
 	// BaselineSchema is the baseline schema.
-	BaselineSchema = "companion.judge.eval-baseline/v1"
+	BaselineSchema = "judge.eval-baseline/v1"
 )
 
 // CaseMeta is the case.json contract.
@@ -682,7 +682,7 @@ func shortHash(h string) string {
 // Markdown renders the human-readable eval report.
 func (r *Report) Markdown() string {
 	var b strings.Builder
-	fmt.Fprintf(&b, "## Companion Judge eval — `%s`\n\n", r.Model)
+	fmt.Fprintf(&b, "## Judge eval — `%s`\n\n", r.Model)
 	if r.Prompt.Hash != "" {
 		fmt.Fprintf(&b, "Prompt `%s` v%s, hash `%s`.\n\n", r.Prompt.ID, r.Prompt.Version, shortHash(r.Prompt.Hash))
 	}

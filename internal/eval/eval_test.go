@@ -215,7 +215,7 @@ func TestMarkdown(t *testing.T) {
 		Baseline:  &Comparison{Path: "baseline.json"},
 	}
 	md := rep.Markdown()
-	for _, want := range []string{"Companion Judge eval", "| a |", "**Aggregate**", "Baseline passed"} {
+	for _, want := range []string{"Judge eval", "| a |", "**Aggregate**", "Baseline passed"} {
 		if !strings.Contains(md, want) {
 			t.Fatalf("markdown missing %q:\n%s", want, md)
 		}

@@ -1,4 +1,4 @@
 {
-  "schema": "companion.judge/v1",
+  "schema": "judge/v1",
   "findings": []
 }

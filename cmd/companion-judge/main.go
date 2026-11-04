@@ -153,6 +153,10 @@ func runReview(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stdout, "No changes to review.")
 		return 0
 	}
+	if len(d.ReviewedPaths()) == 0 {
+		fmt.Fprintln(stdout, "No reviewable changes (all changed files are binary).")
+		return 0
+	}
 
 	task := o.task
 	if task == "" {
@@ -282,7 +286,7 @@ func loadDiff(o reviewOptions) (*change.Diff, error) {
 }
 
 func defaultTask(d *change.Diff) string {
-	paths := d.Paths()
+	paths := d.ReviewedPaths()
 	if len(paths) > 5 {
 		paths = paths[:5]
 	}
@@ -322,6 +326,7 @@ func printDryRun(stdout, stderr io.Writer, cfg review.Config, task string, asJSO
 		Task                 string    `json:"task"`
 		Project              string    `json:"project"`
 		Files                []string  `json:"files"`
+		Skipped              []string  `json:"skipped,omitempty"`
 		Documents            []docInfo `json:"documents"`
 		EstimatedInputTokens int       `json:"estimated_input_tokens"`
 		Warnings             []string  `json:"warnings,omitempty"`
@@ -329,7 +334,8 @@ func printDryRun(stdout, stderr io.Writer, cfg review.Config, task string, asJSO
 	out := summary{
 		Task:                 task,
 		Project:              cfg.Project,
-		Files:                cfg.Diff.Paths(),
+		Files:                cfg.Diff.ReviewedPaths(),
+		Skipped:              cfg.Diff.SkippedPaths(),
 		EstimatedInputTokens: pack.EstimateTokens(),
 		Warnings:             pack.Warnings,
 	}
@@ -351,6 +357,9 @@ func printDryRun(stdout, stderr io.Writer, cfg review.Config, task string, asJSO
 	fmt.Fprintln(stdout, "Dry run: no model call.")
 	fmt.Fprintf(stdout, "Task: %s\n", task)
 	fmt.Fprintf(stdout, "Files: %d (%s)\n", len(out.Files), strings.Join(out.Files, ", "))
+	if len(out.Skipped) > 0 {
+		fmt.Fprintf(stdout, "Skipped binary: %d (%s)\n", len(out.Skipped), strings.Join(out.Skipped, ", "))
+	}
 	fmt.Fprintf(stdout, "Documents: %d, estimated input tokens: %d\n", len(out.Documents), out.EstimatedInputTokens)
 	for _, d := range out.Documents {
 		marker := ""

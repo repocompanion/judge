@@ -2,6 +2,8 @@ package main
 
 import (
 	"bytes"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -57,5 +59,27 @@ func TestReviewRejectsUnknownProvider(t *testing.T) {
 	}
 	if !strings.Contains(stderr.String(), "openai-compatible") {
 		t.Fatalf("stderr = %q", stderr.String())
+	}
+}
+
+func TestReviewAllBinary(t *testing.T) {
+	dir := t.TempDir()
+	diff := filepath.Join(dir, "binary.diff")
+	body := "diff --git a/img.png b/img.png\n" +
+		"index 9532b4e..6c460dc 100644\n" +
+		"Binary files a/img.png and b/img.png differ\n"
+	if err := os.WriteFile(diff, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	var stdout, stderr bytes.Buffer
+	code := run([]string{"review", "--store", dir, "--project", "acme/api", "--diff", diff}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("exit = %d, stderr = %s", code, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "No reviewable changes") {
+		t.Fatalf("stdout = %q", stdout.String())
+	}
+	if stderr.Len() != 0 {
+		t.Fatalf("stderr = %q, want empty", stderr.String())
 	}
 }

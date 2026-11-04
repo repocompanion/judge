@@ -13,7 +13,8 @@ Findings are advisory: nothing is approved, merged, or written back.
 1. Reads a pinned docs-store checkout through
    `companion guidance --store <dir> --json "<task>"`.
 2. Builds a bounded context pack: applicable approved documents, the diff,
-   project and team, and an explicit precedence note.
+   project and team, and an explicit precedence note. Renames and quoted paths
+   are normalized, CRLF is removed, and binary files are skipped.
 3. Asks the model for findings that cite an exact document quote and an exact
    added-code quote.
 4. Verifies every quote against the documents and the diff, drops findings that
@@ -89,6 +90,7 @@ failure, invalid model output).
 | `--model` | `JUDGE_MODEL` | Model id |
 | `--api-key-env` | `JUDGE_API_KEY` | Env var holding the key |
 | `--max-tokens` | 4000 | Maximum completion tokens, including reasoning |
+| `--max-diff-bytes` | 40000 | Maximum diff bytes sent to the model |
 | `--json-mode` | false | Send `response_format: json_object` |
 | `--dry-run` | false | Print the pack summary, no model call |
 
@@ -97,13 +99,29 @@ If the budget is exhausted before the JSON answer, the review fails with a
 truncation error that reports the token counts; raise `--max-tokens` (12000 was
 enough for the checked-in fixture).
 
+## Diff handling
+
+- Both `git diff` output and plain unified diffs (`---`/`+++` without
+  `diff --git`) are accepted.
+- Git's C-style quoted paths (non-ASCII, quotes, backslashes) and unquoted paths
+  containing spaces are decoded; rename and copy metadata is honored.
+- CRLF is normalized before parsing.
+- Hunk line counts decide where a hunk ends, so a removed line whose content
+  starts with `--` is not mistaken for a `---` file header.
+- Binary files are excluded from the prompt and listed in `change.skipped`. A
+  review with only binary changes exits 0 without a model call.
+- A diff larger than `--max-diff-bytes` is cut at a line boundary without
+  splitting a UTF-8 rune, and the prompt says it was truncated.
+
+
 ## Report shape
 
 `companion.judge/v1` includes the model, prompt version and hash, document
 counts, changed files, verified findings, dropped findings with reasons, token
 usage, and warnings. It contains no timestamps, so the same inputs produce the
 same report structure. `findings` and `dropped` are always arrays, including
-when empty.
+when empty. `change` records total `files`, `reviewed`, reviewed `paths`, and
+`skipped` binary paths.
 
 Only documents with `status: approved` are policy. Proposed, deprecated and
 superseded documents are excluded from the pack and cannot back a finding.

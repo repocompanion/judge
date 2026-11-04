@@ -6,6 +6,7 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"unicode/utf8"
 
 	"github.com/repocompanion/companion-judge/internal/change"
 	"github.com/repocompanion/companion-judge/internal/docs"
@@ -320,5 +321,180 @@ func TestMarkdownDistinguishesDropped(t *testing.T) {
 	}
 	if !strings.Contains(md, "No verified findings") {
 		t.Fatalf("markdown missing dropped-findings message:\n%s", md)
+	}
+}
+
+const mixedBinaryDiff = `diff --git a/a.txt b/a.txt
+--- a/a.txt
++++ b/a.txt
+@@ -1 +1,2 @@
+ one
++two
+diff --git a/img.png b/img.png
+index 9532b4e..6c460dc 100644
+Binary files a/img.png and b/img.png differ
+`
+
+func TestBuildPackSkipsBinary(t *testing.T) {
+	d, err := change.Parse([]byte(mixedBinaryDiff))
+	if err != nil {
+		t.Fatal(err)
+	}
+	p := BuildPack(Config{
+		Task: "review", Project: "acme/api", Diff: d,
+		Documents: []docs.Doc{testDoc()}, MaxDocs: 5, MaxDocBytes: 10000, MaxDiffBytes: 10000,
+	})
+	if strings.Contains(p.DiffText, "img.png") {
+		t.Fatalf("DiffText included the binary section:\n%s", p.DiffText)
+	}
+	if !strings.Contains(p.DiffText, "+two") {
+		t.Fatalf("DiffText lost the text change:\n%s", p.DiffText)
+	}
+	if !strings.Contains(strings.Join(p.Warnings, "\n"), "binary") {
+		t.Fatalf("warnings = %v, want a binary-exclusion warning", p.Warnings)
+	}
+}
+
+func TestReportRecordsReviewedAndSkipped(t *testing.T) {
+	d, err := change.Parse([]byte(mixedBinaryDiff))
+	if err != nil {
+		t.Fatal(err)
+	}
+	rep, err := Run(context.Background(), Config{
+		Task: "review", Project: "acme/api", Diff: d,
+		Documents: []docs.Doc{testDoc()}, MaxDocs: 5, MaxDocBytes: 10000, MaxDiffBytes: 10000, MaxFindings: 5,
+		Provider: &fakeProvider{content: `{"findings":[]}`}, Model: "test-model",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rep.Change.Files != 2 || rep.Change.Reviewed != 1 {
+		t.Fatalf("change = %+v, want 2 files and 1 reviewed", rep.Change)
+	}
+	if len(rep.Change.Paths) != 1 || rep.Change.Paths[0] != "a.txt" {
+		t.Fatalf("paths = %v", rep.Change.Paths)
+	}
+	if len(rep.Change.Skipped) != 1 || rep.Change.Skipped[0] != "img.png" {
+		t.Fatalf("skipped = %v", rep.Change.Skipped)
+	}
+	b, err := json.Marshal(rep)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(b), `"skipped":["img.png"]`) {
+		t.Fatalf("report JSON missing skipped paths: %s", b)
+	}
+	if md := rep.Markdown(); !strings.Contains(md, "Skipped 1 binary file(s)") {
+		t.Fatalf("markdown missing skipped note:\n%s", md)
+	}
+}
+
+func TestBuildPackTruncatesDiff(t *testing.T) {
+	var src strings.Builder
+	src.WriteString("diff --git a/x.txt b/x.txt\n--- a/x.txt\n+++ b/x.txt\n@@ -1,0 +1,200 @@\n")
+	for i := 0; i < 200; i++ {
+		src.WriteString("+éééééééééé line\n")
+	}
+	d, err := change.Parse([]byte(src.String()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	p := BuildPack(Config{
+		Task: "review", Project: "acme/api", Diff: d,
+		Documents: []docs.Doc{testDoc()}, MaxDocs: 5, MaxDocBytes: 10000, MaxDiffBytes: 200,
+	})
+	if !p.DiffTruncated {
+		t.Fatal("DiffTruncated = false")
+	}
+	if len(p.DiffText) > 200 {
+		t.Fatalf("DiffText = %d bytes, want <= 200", len(p.DiffText))
+	}
+	if !utf8.ValidString(p.DiffText) {
+		t.Fatal("DiffText split a UTF-8 rune")
+	}
+	if !strings.HasSuffix(p.DiffText, "\n") {
+		t.Fatalf("DiffText does not end at a line boundary: %q", p.DiffText)
+	}
+	if !strings.Contains(strings.Join(p.Warnings, "\n"), "truncated") {
+		t.Fatalf("warnings = %v", p.Warnings)
+	}
+	prompt := p.PromptText()
+	if !strings.Contains(prompt, "diff was truncated") {
+		t.Fatal("prompt does not disclose truncation")
+	}
+	if strings.Count(prompt, "DIFF>>>") != 1 {
+		t.Fatal("prompt did not close the diff block once")
+	}
+}
+
+func TestTruncateDiff(t *testing.T) {
+	if got := truncateDiff("one\néééé\nthree\n", 6); got != "one\n" {
+		t.Fatalf("truncateDiff = %q, want %q", got, "one\n")
+	}
+	if got := truncateDiff("éééé", 3); !utf8.ValidString(got) || got != "é" {
+		t.Fatalf("truncateDiff = %q, want one complete rune", got)
+	}
+	if got := truncateDiff("éééé", 1); got != "" {
+		t.Fatalf("truncateDiff = %q, want empty", got)
+	}
+	if got := truncateDiff("short", 0); got != "short" {
+		t.Fatalf("truncateDiff with max 0 = %q", got)
+	}
+}
+
+func TestRunRejectsAllBinary(t *testing.T) {
+	d, err := change.Parse([]byte(`diff --git a/img.png b/img.png
+index 9532b4e..6c460dc 100644
+Binary files a/img.png and b/img.png differ
+`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	fake := &fakeProvider{content: `{"findings":[]}`}
+	_, err = Run(context.Background(), Config{
+		Diff: d, Documents: []docs.Doc{testDoc()}, Provider: fake, Model: "test-model",
+	})
+	if err == nil || !strings.Contains(err.Error(), "no reviewable changes") {
+		t.Fatalf("error = %v, want a no-reviewable-changes error", err)
+	}
+	if fake.calls != 0 {
+		t.Fatalf("provider was called %d time(s)", fake.calls)
+	}
+}
+
+func TestVerifyKeepsRealBDirectory(t *testing.T) {
+	d, err := change.Parse([]byte(`diff --git a/b/config.go b/b/config.go
+--- a/b/config.go
++++ b/b/config.go
+@@ -1 +1,2 @@
+ package b
++var X = 1
+`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	p := BuildPack(Config{
+		Task: "review", Project: "acme/api", Diff: d,
+		Documents: []docs.Doc{testDoc()}, MaxDocs: 5, MaxDocBytes: 10000, MaxDiffBytes: 10000,
+	})
+	for _, cited := range []string{"b/config.go", "a/b/config.go"} {
+		raw := validRaw()
+		raw.CodePath = cited
+		raw.CodeQuote = "var X = 1"
+		v := Verify(p, []RawFinding{raw}, 10)
+		if len(v.Findings) != 1 {
+			t.Fatalf("cited %q: findings = %+v, dropped = %+v", cited, v.Findings, v.Dropped)
+		}
+		if v.Findings[0].CodePath != "b/config.go" || v.Findings[0].Line != 2 {
+			t.Fatalf("cited %q: finding = %+v", cited, v.Findings[0])
+		}
+	}
+
+	raw := validRaw()
+	raw.CodePath = "config.go"
+	raw.CodeQuote = "var X = 1"
+	v := Verify(p, []RawFinding{raw}, 10)
+	if len(v.Findings) != 0 || len(v.Dropped) != 1 || v.Dropped[0].Reason != "code_path_not_changed" {
+		t.Fatalf("stripped path matched: findings = %+v, dropped = %+v", v.Findings, v.Dropped)
 	}
 }

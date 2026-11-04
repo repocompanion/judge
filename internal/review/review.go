@@ -13,6 +13,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/repocompanion/companion-judge/internal/change"
 	"github.com/repocompanion/companion-judge/internal/docs"
@@ -79,8 +80,10 @@ type DocsInfo struct {
 
 // ChangeInfo records diff coverage.
 type ChangeInfo struct {
-	Files int      `json:"files"`
-	Paths []string `json:"paths"`
+	Files    int      `json:"files"`
+	Reviewed int      `json:"reviewed"`
+	Paths    []string `json:"paths"`
+	Skipped  []string `json:"skipped,omitempty"`
 }
 
 // Usage records model token usage.
@@ -126,14 +129,15 @@ type Config struct {
 
 // Pack is what the model sees.
 type Pack struct {
-	Task      string
-	Project   string
-	Team      string
-	Languages []string
-	Diff      *change.Diff
-	DiffText  string
-	Documents []docs.Doc
-	Warnings  []string
+	Task          string
+	Project       string
+	Team          string
+	Languages     []string
+	Diff          *change.Diff
+	DiffText      string
+	DiffTruncated bool
+	Documents     []docs.Doc
+	Warnings      []string
 }
 
 // BuildPack selects and bounds the review context.
@@ -141,12 +145,16 @@ func BuildPack(cfg Config) *Pack {
 	p := &Pack{Task: cfg.Task, Project: cfg.Project, Team: cfg.Team, Languages: cfg.Languages}
 	if cfg.Diff != nil {
 		p.Diff = cfg.Diff
-		text := cfg.Diff.Raw
+		text := cfg.Diff.ReviewableText()
 		if cfg.MaxDiffBytes > 0 && len(text) > cfg.MaxDiffBytes {
-			text = text[:cfg.MaxDiffBytes]
+			text = truncateDiff(text, cfg.MaxDiffBytes)
+			p.DiffTruncated = true
 			p.Warnings = append(p.Warnings, "the diff was truncated for the prompt")
 		}
 		p.DiffText = text
+		if skipped := cfg.Diff.SkippedPaths(); len(skipped) > 0 {
+			p.Warnings = append(p.Warnings, fmt.Sprintf("%d binary file(s) were excluded from the prompt", len(skipped)))
+		}
 	}
 	for _, d := range cfg.Documents {
 		if !isApproved(d) {
@@ -204,6 +212,9 @@ func (p *Pack) PromptText() string {
 		b.WriteString("\n")
 	}
 	b.WriteString("DIFF>>>\n")
+	if p.DiffTruncated {
+		b.WriteString("\n(the diff was truncated; only the beginning is shown)\n")
+	}
 	return b.String()
 }
 
@@ -219,6 +230,12 @@ func Run(ctx context.Context, cfg Config) (*Report, error) {
 	}
 	if cfg.Diff == nil {
 		return nil, errors.New("diff is required")
+	}
+	if len(cfg.Diff.ReviewedPaths()) == 0 {
+		if len(cfg.Diff.Files) == 0 {
+			return nil, errors.New("diff has no files")
+		}
+		return nil, errors.New("no reviewable changes: all changed files are binary")
 	}
 	pack := BuildPack(cfg)
 	if len(pack.Documents) == 0 {
@@ -243,6 +260,7 @@ func Run(ctx context.Context, cfg Config) (*Report, error) {
 		return nil, err
 	}
 	verified := Verify(pack, raw, cfg.MaxFindings)
+	reviewedPaths := cfg.Diff.ReviewedPaths()
 	report := &Report{
 		Schema:         Schema,
 		Verdict:        "advisory",
@@ -250,11 +268,16 @@ func Run(ctx context.Context, cfg Config) (*Report, error) {
 		Model:          ModelInfo{Provider: cfg.Provider.Name(), ID: cfg.Model, Temperature: cfg.Temperature},
 		Prompt:         PromptInfo{ID: PromptID, Version: PromptVersion, Hash: promptHash()},
 		Docs:           DocsInfo{Considered: len(cfg.Documents), InPack: len(pack.Documents)},
-		Change:         ChangeInfo{Files: len(cfg.Diff.Files), Paths: cfg.Diff.Paths()},
-		Findings:       verified.Findings,
-		Dropped:        verified.Dropped,
-		Usage:          Usage{InputTokens: resp.PromptTokens, OutputTokens: resp.CompletionTokens},
-		Warnings:       pack.Warnings,
+		Change: ChangeInfo{
+			Files:    len(cfg.Diff.Files),
+			Reviewed: len(reviewedPaths),
+			Paths:    reviewedPaths,
+			Skipped:  cfg.Diff.SkippedPaths(),
+		},
+		Findings: verified.Findings,
+		Dropped:  verified.Dropped,
+		Usage:    Usage{InputTokens: resp.PromptTokens, OutputTokens: resp.CompletionTokens},
+		Warnings: pack.Warnings,
 	}
 	report.Docs.Cited = citedDocuments(verified.Findings)
 	if len(verified.Dropped) > 0 {
@@ -332,9 +355,19 @@ func Verify(pack *Pack, raw []RawFinding, max int) Verification {
 		docByID[d.ID] = d
 		docByPath[change.NormalizePath(d.Path)] = d
 	}
-	addedByPath := map[string][]change.AddedLine{}
+	type changedFile struct {
+		path  string
+		lines []change.AddedLine
+	}
+	addedByPath := map[string]*changedFile{}
 	for _, a := range pack.Diff.AddedLines() {
-		addedByPath[change.NormalizePath(a.Path)] = append(addedByPath[change.NormalizePath(a.Path)], a)
+		key := change.NormalizePath(a.Path)
+		cf := addedByPath[key]
+		if cf == nil {
+			cf = &changedFile{path: a.Path}
+			addedByPath[key] = cf
+		}
+		cf.lines = append(cf.lines, a)
 	}
 
 	out := make([]Finding, 0)
@@ -349,7 +382,11 @@ func Verify(pack *Pack, raw []RawFinding, max int) Verification {
 		case docID != "":
 			d, ok = docByID[docID]
 		case docPath != "":
-			d, ok = docByPath[docPath]
+			for _, cand := range change.PathCandidates(docPath) {
+				if d, ok = docByPath[cand]; ok {
+					break
+				}
+			}
 		}
 		if !ok {
 			dropped = append(dropped, Dropped{Reason: "doc_not_in_pack", Detail: valueOr(docID, docPath)})
@@ -365,8 +402,13 @@ func Verify(pack *Pack, raw []RawFinding, max int) Verification {
 			continue
 		}
 		codePath := change.NormalizePath(r.CodePath)
-		lines, ok := addedByPath[codePath]
-		if !ok {
+		var cf *changedFile
+		for _, cand := range change.PathCandidates(codePath) {
+			if cf = addedByPath[cand]; cf != nil {
+				break
+			}
+		}
+		if cf == nil {
 			dropped = append(dropped, Dropped{Reason: "code_path_not_changed", Detail: codePath})
 			continue
 		}
@@ -376,7 +418,7 @@ func Verify(pack *Pack, raw []RawFinding, max int) Verification {
 			continue
 		}
 		line := 0
-		for _, l := range lines {
+		for _, l := range cf.lines {
 			if strings.Contains(normalizeSpace(l.Text), codeQuote) {
 				line = l.Line
 				break
@@ -397,7 +439,7 @@ func Verify(pack *Pack, raw []RawFinding, max int) Verification {
 		default:
 			severity = "warn"
 		}
-		key := d.Path + "\x00" + codePath + "\x00" + strconv.Itoa(line) + "\x00" + codeQuote
+		key := d.Path + "\x00" + cf.path + "\x00" + strconv.Itoa(line) + "\x00" + codeQuote
 		if seen[key] {
 			continue
 		}
@@ -407,7 +449,7 @@ func Verify(pack *Pack, raw []RawFinding, max int) Verification {
 			DocID:       d.ID,
 			DocPath:     d.Path,
 			DocQuote:    strings.TrimSpace(r.DocQuote),
-			CodePath:    codePath,
+			CodePath:    cf.path,
 			Line:        line,
 			CodeQuote:   strings.TrimSpace(r.CodeQuote),
 			Severity:    severity,
@@ -439,7 +481,14 @@ func Verify(pack *Pack, raw []RawFinding, max int) Verification {
 func (r *Report) Markdown() string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "## Companion Judge — %s\n\n", r.Verdict)
-	fmt.Fprintf(&b, "Reviewed %d changed file(s) against %d document(s) with `%s`.\n\n", r.Change.Files, r.Docs.InPack, r.Model.ID)
+	reviewed := r.Change.Reviewed
+	if reviewed == 0 {
+		reviewed = r.Change.Files
+	}
+	fmt.Fprintf(&b, "Reviewed %d changed file(s) against %d document(s) with `%s`.\n\n", reviewed, r.Docs.InPack, r.Model.ID)
+	if len(r.Change.Skipped) > 0 {
+		fmt.Fprintf(&b, "_Skipped %d binary file(s)._\n\n", len(r.Change.Skipped))
+	}
 	if len(r.Findings) == 0 {
 		if len(r.Dropped) > 0 {
 			b.WriteString("No verified findings. Model findings were discarded because their evidence did not verify.\n")
@@ -471,6 +520,28 @@ func (r *Report) Markdown() string {
 
 func isApproved(d docs.Doc) bool {
 	return strings.EqualFold(strings.TrimSpace(d.Status), "approved")
+}
+
+// truncateDiff cuts text at or before max bytes without splitting a UTF-8
+// rune, preferring the last complete line.
+func truncateDiff(s string, max int) string {
+	if max <= 0 || len(s) <= max {
+		return s
+	}
+	cut := max
+	for cut > 0 && !utf8.RuneStart(s[cut]) {
+		cut--
+	}
+	if i := strings.LastIndexByte(s[:cut], '\n'); i >= 0 {
+		cut = i + 1
+	}
+	if cut == 0 {
+		cut = max
+		for cut > 0 && !utf8.RuneStart(s[cut]) {
+			cut--
+		}
+	}
+	return s[:cut]
 }
 
 func normalizeSpace(s string) string {

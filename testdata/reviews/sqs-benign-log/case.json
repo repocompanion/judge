@@ -1,0 +1,6 @@
+{
+  "project": "acme/api",
+  "team": "payments",
+  "language": "go",
+  "task": "log the received message count"
+}

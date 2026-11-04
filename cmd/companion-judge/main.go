@@ -28,6 +28,7 @@ const usageText = `companion-judge reviews a change against a Repo Companion doc
 
 Usage:
   companion-judge review --store DIR --project OWNER/REPO --model MODEL [flags]
+  companion-judge eval --model MODEL [flags]
   companion-judge version
   companion-judge help
 
@@ -64,6 +65,8 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return 0
 	case "review":
 		return runReview(args[1:], stdout, stderr)
+	case "eval":
+		return runEval(args[1:], stdout, stderr)
 	default:
 		fmt.Fprintf(stderr, "unknown command %q\n\n%s\n", args[0], usageText)
 		return 2
@@ -207,27 +210,7 @@ func runReview(args []string, stdout, stderr io.Writer) int {
 		return printDryRun(stdout, stderr, cfg, task, o.jsonOut)
 	}
 
-	baseURL := o.baseURL
-	if baseURL == "" {
-		baseURL = os.Getenv("JUDGE_BASE_URL")
-	}
-	if baseURL == "" {
-		baseURL = "https://api.openai.com/v1"
-	}
-	model := o.model
-	if model == "" {
-		model = os.Getenv("JUDGE_MODEL")
-	}
-	if model == "" {
-		fmt.Fprintln(stderr, "review: --model or JUDGE_MODEL is required")
-		return 2
-	}
-	key := apiKey(o.apiKeyEnv)
-	if key == "" && !provider.IsLoopbackURL(baseURL) {
-		fmt.Fprintf(stderr, "review: no API key in %s or OPENAI_API_KEY\n", o.apiKeyEnv)
-		return 2
-	}
-	p, err := provider.NewOpenAI(baseURL, key, o.timeout)
+	p, model, err := openProvider(o.baseURL, o.model, o.apiKeyEnv, o.timeout)
 	if err != nil {
 		fmt.Fprintf(stderr, "review: %v\n", err)
 		return 2
@@ -294,6 +277,30 @@ func defaultTask(d *change.Diff) string {
 		return "review the change"
 	}
 	return "review changes in " + strings.Join(paths, ", ")
+}
+
+func openProvider(baseURL, model, apiKeyEnv string, timeout time.Duration) (provider.Provider, string, error) {
+	if baseURL == "" {
+		baseURL = os.Getenv("JUDGE_BASE_URL")
+	}
+	if baseURL == "" {
+		baseURL = "https://api.openai.com/v1"
+	}
+	if model == "" {
+		model = os.Getenv("JUDGE_MODEL")
+	}
+	if strings.TrimSpace(model) == "" {
+		return nil, "", fmt.Errorf("--model or JUDGE_MODEL is required")
+	}
+	key := apiKey(apiKeyEnv)
+	if key == "" && !provider.IsLoopbackURL(baseURL) {
+		return nil, "", fmt.Errorf("no API key in %s or OPENAI_API_KEY", apiKeyEnv)
+	}
+	p, err := provider.NewOpenAI(baseURL, key, timeout)
+	if err != nil {
+		return nil, "", err
+	}
+	return p, model, nil
 }
 
 func apiKey(envName string) string {

@@ -1,0 +1,55 @@
+{
+  "schema": "companion.judge.eval-baseline/v1",
+  "model": "deepseek-flash",
+  "prompt": {
+    "id": "review",
+    "version": "1",
+    "hash": "sha256:1ece26448a6aa0c6b7364d4220364acda99726375eb0ffed3d975e7adf70ac98"
+  },
+  "cases": {
+    "sqs-benign-log": {
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "verified": 0,
+      "evidence_dropped": 0,
+      "precision": 1,
+      "recall": 1,
+      "citation_validity": 1,
+      "hallucination_rate": 0,
+      "stable": true,
+      "input_tokens": 2691,
+      "output_tokens": 218,
+      "runs": 3
+    },
+    "sqs-body-logging": {
+      "tp": 3,
+      "fp": 0,
+      "fn": 0,
+      "verified": 3,
+      "evidence_dropped": 0,
+      "precision": 1,
+      "recall": 1,
+      "citation_validity": 1,
+      "hallucination_rate": 0,
+      "stable": true,
+      "input_tokens": 2724,
+      "output_tokens": 1123,
+      "runs": 3
+    }
+  },
+  "aggregate": {
+    "tp": 3,
+    "fp": 0,
+    "fn": 0,
+    "verified": 3,
+    "evidence_dropped": 0,
+    "precision": 1,
+    "recall": 1,
+    "citation_validity": 1,
+    "hallucination_rate": 0,
+    "stable": true,
+    "input_tokens": 5415,
+    "output_tokens": 1341
+  }
+}

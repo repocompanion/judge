@@ -1,0 +1,6 @@
+{
+  "project": "acme/api",
+  "team": "payments",
+  "language": "go",
+  "task": "add SQS consumer"
+}

@@ -5,8 +5,9 @@ organization's approved documentation and returns findings that cite both the
 document and the code they refer to.
 
 **Status: early alpha.** The `review` command works against any
-OpenAI-compatible chat-completions endpoint. Anthropic support is planned.
-Findings are advisory: nothing is approved, merged, or written back.
+OpenAI-compatible chat-completions endpoint. The `eval` command scores fixtures
+and gates a committed baseline. Anthropic support is planned. Findings are
+advisory: nothing is approved, merged, or written back.
 
 ## What it does
 
@@ -126,6 +127,68 @@ when empty. `change` records total `files`, `reviewed`, reviewed `paths`, and
 Only documents with `status: approved` are policy. Proposed, deprecated and
 superseded documents are excluded from the pack and cannot back a finding.
 
+## Evaluation
+
+Fixtures live under `testdata/reviews/<case>/`:
+
+```text
+case.json       project, team, language and retrieval task
+change.patch    the diff under review
+docs/           the pinned docs store for this case
+expected.json   expected findings; empty for a benign case
+notes.md        why the case exists
+```
+
+`case.json`:
+
+```json
+{
+  "project": "acme/api",
+  "team": "payments",
+  "language": "go",
+  "task": "add SQS consumer"
+}
+```
+
+`expected.json` findings match on `doc_id` or `doc_path`, `code_path`, and a
+`line` or `line_start`/`line_end` range. Extra verified findings are false
+positives; unmatched expected findings are false negatives. Severity and
+category are informational and do not affect matching.
+
+Run every case against the same endpoint used for reviews:
+
+```bash
+export JUDGE_API_KEY=...
+companion-judge eval \
+  --model deepseek-flash \
+  --base-url https://api.deepseek.com/v1 \
+  --runs 3
+```
+
+It uses the same `companion` build with `--store` support; pass `--companion`
+if it is not on `PATH`. `--cases` defaults to `testdata/reviews` and
+`--baseline` to `testdata/evals/baseline.json`.
+
+The report includes per-case and aggregate precision, recall, citation
+validity, hallucination rate, stability across runs, and token usage. TP/FP/FN
+and token counts are summed across runs. Citation validity is verified findings
+divided by verified plus evidence-dropped findings; the max-findings cap and a
+missing message are not counted as hallucinations. The baseline at
+`testdata/evals/baseline.json` gates precision and citation validity per case
+and in aggregate; recall and stability losses are warnings. Use `--json` for
+the machine-readable report and `--no-baseline` to report without gating.
+
+`--emit-baseline` prints a baseline to stdout; the binary never writes it:
+
+```bash
+companion-judge eval ... --runs 3 --emit-baseline > testdata/evals/baseline.json
+```
+
+Exit codes: `0` pass, `2` usage or input error, `3` the eval could not complete,
+`4` a baseline regression. The checked-in baseline was recorded with
+`deepseek-flash` and prompt `review` v1; changing either is expected to require
+a new baseline.
+
 ## Development
 
 ```bash
@@ -147,7 +210,9 @@ COMPANION_BIN=/path/to/companion go test ./cmd/companion-judge
 ```
 
 The other end-to-end tests use a loopback model stub and a companion stub, so
-they need no endpoint or API key.
+they need no endpoint or API key. That includes the eval scoring and baseline
+gate; the checked-in baseline itself is refreshed against a real endpoint with
+the eval command above.
 
 ## License
 

@@ -22,9 +22,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # macos-latest is arm64 and its hosted capacity can leave jobs queued
-        # until GitHub cancels them. macos-15-intel is the supported Intel image.
-        os: [ubuntu-latest, macos-15-intel]
+        # macOS is verified locally with `make check`. Hosted macOS jobs are
+        # frequently cancelled while queued, so they are not a required gate.
+        os: [ubuntu-latest]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 

@@ -15,9 +15,9 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/repocompanion/companion-judge/internal/change"
-	"github.com/repocompanion/companion-judge/internal/docs"
-	"github.com/repocompanion/companion-judge/internal/provider"
+	"github.com/repocompanion/judge/internal/change"
+	"github.com/repocompanion/judge/internal/docs"
+	"github.com/repocompanion/judge/internal/provider"
 )
 
 const (

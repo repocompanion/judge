@@ -13,7 +13,7 @@ func TestRunVersion(t *testing.T) {
 	if code := run([]string{"version"}, &stdout, &stderr); code != 0 {
 		t.Fatalf("exit = %d, want 0", code)
 	}
-	if got, want := stdout.String(), "companion-judge "+version+"\n"; got != want {
+	if got, want := stdout.String(), "judge "+version+"\n"; got != want {
 		t.Fatalf("stdout = %q, want %q", got, want)
 	}
 	if stderr.Len() != 0 {

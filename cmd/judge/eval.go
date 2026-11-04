@@ -10,10 +10,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/repocompanion/companion-judge/internal/eval"
+	"github.com/repocompanion/judge/internal/eval"
 )
 
-const evalUsage = `Usage: companion-judge eval --model MODEL [flags]
+const evalUsage = `Usage: judge eval --model MODEL [flags]
 
 Runs every case in --cases. Each case has:
   case.json       project, team, language and retrieval task

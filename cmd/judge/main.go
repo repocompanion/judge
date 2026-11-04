@@ -1,4 +1,4 @@
-// Command companion-judge reviews a change against a Repo Companion docs store.
+// Command judge reviews a change against a Repo Companion docs store.
 //
 // It is advisory: findings are reported, never approved or merged.
 package main
@@ -16,26 +16,26 @@ import (
 	"strings"
 	"time"
 
-	"github.com/repocompanion/companion-judge/internal/change"
-	"github.com/repocompanion/companion-judge/internal/docs"
-	"github.com/repocompanion/companion-judge/internal/provider"
-	"github.com/repocompanion/companion-judge/internal/review"
+	"github.com/repocompanion/judge/internal/change"
+	"github.com/repocompanion/judge/internal/docs"
+	"github.com/repocompanion/judge/internal/provider"
+	"github.com/repocompanion/judge/internal/review"
 )
 
 const version = "0.1.0-dev"
 
-const usageText = `companion-judge reviews a change against a Repo Companion docs store.
+const usageText = `judge reviews a change against a Repo Companion docs store.
 
 Usage:
-  companion-judge review --store DIR --project OWNER/REPO --model MODEL [flags]
-  companion-judge eval --model MODEL [flags]
-  companion-judge version
-  companion-judge help
+  judge review --store DIR --project OWNER/REPO --model MODEL [flags]
+  judge eval --model MODEL [flags]
+  judge version
+  judge help
 
 The review is advisory. Findings are reported with document and code evidence;
 nothing is approved, merged, or written back to the store.`
 
-const reviewUsage = `Usage: companion-judge review --store DIR --project OWNER/REPO [flags]
+const reviewUsage = `Usage: judge review --store DIR --project OWNER/REPO [flags]
 
 Reviews the diff between --base and --head (or --diff / --staged) against
 documents returned by:
@@ -58,7 +58,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 	}
 	switch args[0] {
 	case "version", "--version", "-v":
-		fmt.Fprintf(stdout, "companion-judge %s\n", version)
+		fmt.Fprintf(stdout, "judge %s\n", version)
 		return 0
 	case "help", "--help", "-h":
 		fmt.Fprintln(stdout, usageText)

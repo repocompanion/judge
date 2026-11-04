@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/repocompanion/companion-judge/internal/review"
+	"github.com/repocompanion/judge/internal/review"
 )
 
 func TestMatch(t *testing.T) {

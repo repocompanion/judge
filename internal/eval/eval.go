@@ -14,10 +14,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/repocompanion/companion-judge/internal/change"
-	"github.com/repocompanion/companion-judge/internal/docs"
-	"github.com/repocompanion/companion-judge/internal/provider"
-	"github.com/repocompanion/companion-judge/internal/review"
+	"github.com/repocompanion/judge/internal/change"
+	"github.com/repocompanion/judge/internal/docs"
+	"github.com/repocompanion/judge/internal/provider"
+	"github.com/repocompanion/judge/internal/review"
 )
 
 const (

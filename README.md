@@ -1,5 +1,8 @@
 # Companion Judge
 
+The command is `judge`; the module and repository are
+`github.com/repocompanion/judge`.
+
 Agentic reviewer for Repo Companion. It reviews a change against the
 organization's approved documentation and returns findings that cite both the
 document and the code they refer to.
@@ -41,7 +44,7 @@ export JUDGE_BASE_URL=https://api.openai.com/v1   # or a local/self-hosted endpo
 export JUDGE_MODEL=your-model-id
 
 # Inspect the request first. No model call, no API key needed.
-companion-judge review \
+judge review \
   --store ../docs-store \
   --project acme/api \
   --base origin/main \
@@ -49,7 +52,7 @@ companion-judge review \
   --dry-run
 
 # Run the review.
-companion-judge review \
+judge review \
   --store ../docs-store \
   --project acme/api \
   --base origin/main \
@@ -59,14 +62,14 @@ companion-judge review \
 The diff can also come from a file or the index:
 
 ```bash
-companion-judge review --store ../docs-store --project acme/api --diff pr.diff
-companion-judge review --store ../docs-store --project acme/api --staged
+judge review --store ../docs-store --project acme/api --diff pr.diff
+judge review --store ../docs-store --project acme/api --staged
 ```
 
 Output:
 
 ```bash
-companion-judge review ... --json    # companion.judge/v1 report
+judge review ... --json    # companion.judge/v1 report
 ```
 
 Exit codes: `0` review completed (findings do not fail the command), `2` usage
@@ -159,7 +162,7 @@ Run every case against the same endpoint used for reviews:
 
 ```bash
 export JUDGE_API_KEY=...
-companion-judge eval \
+judge eval \
   --model deepseek-flash \
   --base-url https://api.deepseek.com/v1 \
   --runs 3
@@ -181,7 +184,7 @@ the machine-readable report and `--no-baseline` to report without gating.
 `--emit-baseline` prints a baseline to stdout; the binary never writes it:
 
 ```bash
-companion-judge eval ... --runs 3 --emit-baseline > testdata/evals/baseline.json
+judge eval ... --runs 3 --emit-baseline > testdata/evals/baseline.json
 ```
 
 Exit codes: `0` pass, `2` usage or input error, `3` the eval could not complete,
@@ -192,10 +195,12 @@ a new baseline.
 ## Development
 
 ```bash
-go test ./...
-go vet ./...
-make fmt vet test
+make check        # gofmt check, vet and test; this is what CI runs
+make fmt vet test # format, vet and test locally
 ```
+
+CI also runs `go test -race ./...` on Linux. It uses no model key, no
+`companion` binary and no network beyond the loopback stubs.
 
 The checked-in fixture under
 [`testdata/reviews/sqs-body-logging`](testdata/reviews/sqs-body-logging) exercises
@@ -206,7 +211,7 @@ the guidance contract and evidence verification:
 make smoke COMPANION=/path/to/companion
 
 # Run the end-to-end test against the real companion binary.
-COMPANION_BIN=/path/to/companion go test ./cmd/companion-judge
+COMPANION_BIN=/path/to/companion go test ./cmd/judge
 ```
 
 The other end-to-end tests use a loopback model stub and a companion stub, so

@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/repocompanion/companion-judge/internal/eval"
+	"github.com/repocompanion/judge/internal/eval"
 )
 
 const fixtureTwoFindings = `{"findings":[{"doc_id":"sqs-consumer","doc_path":"org/patterns/messaging/sqs.md","doc_quote":"MUST NOT log raw message bodies.","code_path":"internal/consumer/consumer.go","line":999,"code_quote":"log.Printf(\"message body: %s\", m.Body)","severity":"error","category":"pattern","message":"the change logs the raw message body","remediation":"log the message id instead","confidence":0.9},{"doc_id":"sqs-consumer","doc_path":"org/patterns/messaging/sqs.md","doc_quote":"MUST NOT log raw message bodies.","code_path":"internal/consumer/consumer.go","line":11,"code_quote":"for _, m := range msgs {","severity":"error","category":"pattern","message":"the loop handles raw messages","remediation":"handle the messages differently","confidence":0.8}]}`
